@@ -6,7 +6,11 @@ from components import Metric
 from solver import Problem, Solver, MESolver
 from typing import Union, Callable, Literal
 from sklearn.linear_model import LinearRegression
-import scienceplots as splt
+from matplotlib.patches import Rectangle
+from matplotlib.transforms import Bbox
+from matplotlib import rc
+
+
 
 class Analyzer(object):
 
@@ -754,6 +758,17 @@ class Analyzer(object):
                         adjust_font: bool=False, \
                         show: bool=True, save_name: Union[str, None]=None):
         
+        
+         # Convert the K list to np.ndarray
+        if isinstance(K, int):
+            K = np.array([K])
+        elif isinstance(K, list):
+            K = np.array(K)
+        elif isinstance(K, tuple):
+            K = np.array(K)
+        elif isinstance(K, range):
+            K = np.array(list(K))
+
         # Font options
         if adjust_font:
             plt.rcParams.update({
@@ -761,8 +776,11 @@ class Analyzer(object):
                 "font.family": "serif",  # Use serif font
                 "font.serif": ["cmr10"],  # Set the CMR font family and size
                 "font.size": 10,  # Set the default font size
-                "axes.formatter.use_mathtext": True  # Enable mathtext mode
+                "axes.formatter.use_mathtext": True,  # Enable mathtext mode
             })
+            
+            rc('text.latex', preamble=r'\usepackage{color}')
+
 
         markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p', 'P', '*', 'X', 'h', 'H', '+', 'x', '|', '_']
         colors = ["#CC6677", "#999933", "#117733", "#332288"][::-1]
@@ -770,6 +788,8 @@ class Analyzer(object):
         # Compute the L2 errors
         eL2, eLinf = self.compute_L2Linf_div_h(N, K, DN_int_x, DN_int_y, DN_int_t, DN_L2_int_x, DN_L2_int_y, DN_L2_int_t, regression)
 
+        # array to store legend handles
+        im = [0 for i in range(2 * len(K))]
 
         # Adding legend inside a box
         fig, ax = plt.subplots(1, figsize=(3.15, 4))
@@ -778,21 +798,36 @@ class Analyzer(object):
 
         # Plotting
         for i in range(eL2.shape[0]):
-            ax.plot(N, eL2[i, :], label=f'$K = {K[i]}$' if K is not None else '$K = None$', color=colors[i], marker=markers[i])
+            im[i], = ax.plot(N, eL2[i, :], color=colors[i], marker=markers[i], markersize=3)
 
         for i in range(eLinf.shape[0]):
-            ax.plot(N, eLinf[i, :], label=f'$K = {K[i]}$' if K is not None else '$K = None$', color=colors[i], marker=markers[i], linestyle='--')
+            im[i + len(K)], = ax.plot(N, eLinf[i, :], color=colors[i], marker=markers[i], linestyle='--', markersize=3)
 
         # Set ticks on the x-axis
         ax.set_xticks(N)
 
         # Axes labels
         ax.set_xlabel('$N$')
-        ax.set_ylabel(r'$\left \Vert \Delta w - \frac{\partial ^ 2 w}{\partial t ^ 2} \right \Vert ^ e_{L^2_{\Omega \times T}}$')
+        ax.set_ylabel(r'$\left \Vert \Delta w - \frac{\partial ^ 2 w}{\partial t ^ 2} \right \Vert ^ e_{L^p_{\Omega \times T}}$')
         
         # Legend
+
+        # create blank rectangle
+        extra = Rectangle((0, 0), 2, 2, fc="w", fill=False, edgecolor='k', linewidth=0)
+        empty = [""]
+
+        label_key = [r'$K \backslash p$']   
+        label_col = [r'$\textcolor{white}{|||}$' + f'${i}$' for i in K]   
+        label_row = [r'$\textcolor{white}{|||} 2 \textcolor{white}{|||}$', r'$\textcolor{white}{||} \infty \textcolor{white}{||}$']       
+
+        legend_handle = [*[extra for i in range(2 + len(K))], *im[0 : len(K)], extra, *im[len(K):]]
+        legend_labels = np.concatenate([label_key, label_col, [label_row[0]], len(K) * empty, [label_row[1]], len(K) * empty])
+
+
         legend = ax.legend
-        legend(loc='best', shadow=False, ncol=2, frameon=True, framealpha=1, facecolor=None, edgecolor='black').get_frame().set_boxstyle('square', pad=0.2)
+        legend(legend_handle, legend_labels, \
+               borderpad=0.5, columnspacing = 0.4, handletextpad = -2, \
+               loc='best', shadow=False, ncol=3, frameon=True, framealpha=1, facecolor=None, edgecolor='black').get_frame().set_boxstyle('square', pad=0.2)
 
         plt.tight_layout()
 
@@ -927,12 +962,12 @@ if __name__ == "__main__":
 
     # a.plot_energy([0., 0.5, 1.0, 1.5, 2.0], N_int_x=7, N_int_y=7, show=True, save_name=None, verbose=False)
 
-    a.plot_L2Linf_div_h(range(2, 6), [1, 2, 3], \
+    a.plot_L2Linf_div_h(range(2, 11), [1, 2, 3], \
                     2, 2, 2, \
                     3, 3, 3, \
-                    adjust_font= False, \
+                    adjust_font= True, \
                     regression=True,
-                    save_name='L2Linf_errors_div_c1.pdf')
+                    save_name='L2Linf_errors_div_c1.ps')
 
     # a.plot_condition_number(range(2, 7), [1, 2, 3], \
     #                 2, 2, 2, \
