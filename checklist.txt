@@ -1,0 +1,18 @@
+1. Problem (note this is only in ONE direction (xi, eta) -> tot energy?)
+a) time mapping: type, t_begin, t_end
+b) domain mapping: type, kwargs (like c)
+c) c, rho constants
+d) initial condition: w0, pi0(=0)
+e) boundary condition: 0
+f) single element, multiple elements: K
+g) problem order: N
+h) problem orders of integration: N_int_x, N_int_y, N_int_t
+i) exact solution
+j) exact energy
+
+2. General Reconstruction, Plotting, Animating
+a) mesh_xieta: resolution N_x, N_y
+b) time resolution (number of time slices)
+
+3. Analyzing
+a) 
