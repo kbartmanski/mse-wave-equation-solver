@@ -11,6 +11,36 @@ from matplotlib.transforms import Bbox
 from matplotlib import rc
 
 
+class PlotterHelper(object):
+
+    MARKERS = ['o', 's', 'D', '^', 'v', '<', '>', 'p', 'P', '*', 'X', 'h', 'H', '+', 'x', '|', '_']
+    COLORS = ["#CC6677", "#999933", "#117733", "#332288"][::-1]
+    MARKERSIZE = 3
+    REC_RATIO = 4 / 4.   # w / h
+    A4_DIMS = (8.3, 11.7)
+
+    @staticmethod
+    def adjust_font():
+        plt.rcParams.update({
+                "text.usetex": True,  # Use TeX for rendering
+                "font.family": "serif",  # Use serif font
+                "font.serif": ["cmr10"],  # Set the CMR font family and size
+                "font.size": 10,  # Set the default font size
+                "axes.formatter.use_mathtext": True,  # Enable mathtext mode
+            })
+            
+        rc('text.latex', preamble=r'\usepackage{color}')
+
+    @staticmethod
+    def get_figsize(n_figs_on_page:int = 2, ratio: float=REC_RATIO, page_margin: float=1):
+        w = (PlotterHelper.A4_DIMS[0] - 2 * page_margin) / n_figs_on_page
+        h = w / ratio
+
+        return (w, h)
+
+    @staticmethod
+    def get_colors_markers_markersize():
+        return PlotterHelper.COLORS, PlotterHelper.MARKERS, PlotterHelper.MARKERSIZE
 
 class Analyzer(object):
 
@@ -75,7 +105,7 @@ class Analyzer(object):
         return np.all(lengths == lengths[0])
 
     # Private method for one-time evaluation of L2 error for zw
-    def __compute_L2_zw_h_def(self, \
+    def __compute_L2Linf_zw_h_def(self, \
                                 dual: bool, \
                                 N: int, \
                                 K: Union[int, None]=None, \
@@ -182,8 +212,8 @@ class Analyzer(object):
         # Integrate
         I = np.einsum('ijk,i,j,k->', d_sq * J_INT, metric.weights_int_y, metric.weights_int_x, metric.weights_int_t, optimize='greedy')
 
-        # Return the value squared
-        return np.sqrt(I)
+        # Return the value sqrt, and Linf
+        return np.sqrt(I), np.max(np.abs(zw_ex_evaluated - z_h))
 
     # Private method for one-time evaluation of L2 error for div
     def __compute_L2Linf_div_h_def(self, \
@@ -361,7 +391,7 @@ class Analyzer(object):
             return np.max(aux_solver.get_condition_number())
 
     # Public method for L2 error for zw
-    def compute_L2_zw_h(self, \
+    def compute_L2Linf_zw_h(self, \
                         dual: bool, \
                         N: Union[int, tuple, list, np.ndarray], \
                         K: Union[int, tuple, list, np.ndarray, None], \
@@ -401,6 +431,7 @@ class Analyzer(object):
 
         # Prelocate memory
         eL2 = np.zeros(shape = (len(K), len(N)) if K is not None else (1, len(N)), dtype=float)
+        eLinf = np.zeros(shape = (len(K), len(N)) if K is not None else (1, len(N)), dtype=float)
 
         # Compute the array of L2s corresponding to each N-option
         print("Computing L2 errors (by definition) for...")
@@ -412,46 +443,30 @@ class Analyzer(object):
 
                 print(f"N = {n}, K = {k}")
 
-                l2 = self.__compute_L2_zw_h_def(dual, n, k, \
+                l2, linf = self.__compute_L2Linf_zw_h_def(dual, n, k, \
                                                 n + DN_int_x, n + DN_int_y, \
                                                 n + DN_int_t, n + DN_L2_int_x, n + DN_L2_int_y, n + DN_L2_int_t, \
                                                 verbose=False)
 
                 eL2[i, j] = l2
+                eLinf[i, j] = linf
 
                 print(f"N = {n}, K = {k}: eL2 = {l2}\n")
         
         # If the number of points in K or N directions are at least 2, perform regression on each dimension
         if regression:
-            if len(N) > 1 and len(K) > 1:
-                reg_arr_N = np.zeros(len(K), dtype=object)
-                reg_arr_K = np.zeros(len(N), dtype=object)
+            if len(N) > 1:
+                reg_arr_L2 = np.empty(len(K), dtype=object)
+                reg_arr_Linf = np.empty(len(K), dtype=object)
 
                 for i in range(len(K)):
-                    reg_arr_N[i] = LinearRegression().fit(N.reshape(-1, 1), np.log10(eL2[i, :]))
+                    reg_arr_L2[i] = LinearRegression().fit(N.reshape(-1, 1), np.log10(eL2[i, :]))
+                    reg_arr_Linf[i] = LinearRegression().fit(N.reshape(-1, 1), np.log10(eLinf[i, :]))
 
-                for i in range(len(N)):
-                    reg_arr_K[i] = LinearRegression().fit(K.reshape(-1, 1), np.log10(eL2[:, i]))
 
-                return eL2, reg_arr_N, reg_arr_K
-            
-            elif len(N) > 1 and len(K) == 1:
-                reg_arr_N = np.zeros(len(N), dtype=object)
+                return eL2, eLinf, reg_arr_L2, reg_arr_Linf
 
-                for i in range(len(K)):
-                    reg_arr_N[i] = LinearRegression().fit(N.reshape(-1, 1), np.log10(eL2[i, :]))
-
-                return eL2, reg_arr_N, None
-            
-            elif len(N) == 1 and len(K) > 1:
-                reg_arr_K = np.zeros(len(K), dtype=object)
-
-                for i in range(len(N)):
-                    reg_arr_K[i] = LinearRegression().fit(K.reshape(-1, 1), np.log10(eL2[:, i]))
-
-                return eL2, None, reg_arr_K
-
-        return eL2, None, None
+        return eL2, eLinf, None, None
 
     # Public method for L2 error for div
     def compute_L2Linf_div_h(self, \
@@ -695,7 +710,7 @@ class Analyzer(object):
         # All done
         return e_pot, e_kin, e_tot
 
-    def plot_L2_zw_h(self, dual: bool, \
+    def plot_L2Linf_zw_h(self, dual: bool, \
                         N: Union[int, tuple, list, np.ndarray], \
                         K: Union[int, tuple, list, np.ndarray, None], \
                         DN_int_x: int, DN_int_y: int, DN_int_t: int, \
@@ -704,44 +719,79 @@ class Analyzer(object):
                         adjust_font: bool=False, \
                         show: bool=True, save_name: Union[str, None]=None):
         
+
+        # Convert the K list to np.ndarray
+        if isinstance(K, int):
+            K = np.array([K])
+        elif isinstance(K, list):
+            K = np.array(K)
+        elif isinstance(K, tuple):
+            K = np.array(K)
+        elif isinstance(K, range):
+            K = np.array(list(K))
+
         # Font options
         if adjust_font:
-            plt.rcParams.update({
-                "text.usetex": True,  # Use TeX for rendering
-                "font.family": "serif",  # Use serif font
-                "font.serif": ["cmr10"],  # Set the CMR font family and size
-                "font.size": 10,  # Set the default font size
-                "axes.formatter.use_mathtext": True  # Enable mathtext mode
-            })
+            PlotterHelper.adjust_font()
 
-        markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', 'P', '*', 'X', 'h', 'H', '+', 'x', '|', '_']
-        colors = ["#CC6677", "#999933", "#117733", "#332288"][::-1]
+        colors, markers, markersize = PlotterHelper.get_colors_markers_markersize()
+        
 
         # Compute the L2 errors
-        eL2, reg_arr_N, reg_arr_K = self.compute_L2_zw_h(dual, N, K, DN_int_x, DN_int_y, DN_int_t, DN_L2_int_x, DN_L2_int_y, DN_L2_int_t, regression)
+        eL2, eLinf, reg_arr_L2, reg_arr_Linf = self.compute_L2Linf_zw_h(dual, N, K, DN_int_x, DN_int_y, DN_int_t, DN_L2_int_x, DN_L2_int_y, DN_L2_int_t, regression)
 
+        # array to store legend handles
+        im = [0 for i in range(2 * len(K))]
 
         # Adding legend inside a box
-        fig, ax = plt.subplots(1, figsize=(3.15, 4))
+        fig, ax = plt.subplots(1, figsize=PlotterHelper.get_figsize())
 
         ax.set_yscale('log')
 
         # Plotting
         for i in range(eL2.shape[0]):
-            ax.plot(N, eL2[i, :], label=f'$K = {K[i]}$' if K is not None else '$K = None$', color=colors[i], marker=markers[i])
+            im[i], = ax.plot(N, eL2[i, :], color=colors[i], marker=markers[i], markersize=markersize)
+
+        for i in range(eLinf.shape[0]):
+            im[i + len(K)], = ax.plot(N, eLinf[i, :], color=colors[i], marker=markers[i], linestyle='--', markersize=markersize)
 
         # Set ticks on the x-axis
         ax.set_xticks(N)
 
         # Axes labels
         ax.set_xlabel('$N$')
-        ax.set_ylabel(r'$\left \Vert w \right \Vert ^e_{L^2_{\Omega \times T}}$')
-        
+        ax.set_ylabel(r'$\left \Vert w \right \Vert ^e_{L^p_{\Omega \times T}}$')
+
         # Legend
+
+        # create blank rectangle
+        extra = Rectangle((0, 0), 2, 2, fc="w", fill=False, edgecolor='k', linewidth=0)
+        empty = [""]
+
+        if adjust_font:
+            label_key = [r'$K \backslash p$']   
+            label_col = [r'$\textcolor{white}{|||}$' + f'${i}$' for i in K]   
+            label_row = [r'$\textcolor{white}{|||} 2 \textcolor{white}{|||}$', r'$\textcolor{white}{||} \infty \textcolor{white}{||}$']
+        else:
+            label_key = [r'$K \backslash p$']   
+            label_col = [f'${i}$' for i in K]   
+            label_row = [r'$2$', r'$\infty$']       
+
+        legend_handle = [*[extra for i in range(2 + len(K))], *im[0 : len(K)], extra, *im[len(K):]]
+        legend_labels = np.concatenate([label_key, label_col, [label_row[0]], len(K) * empty, [label_row[1]], len(K) * empty])
+
+
         legend = ax.legend
-        legend(loc='best', shadow=False, frameon=True, framealpha=1, facecolor=None, edgecolor='black').get_frame().set_boxstyle('square', pad=0.2)
+        legend(legend_handle, legend_labels, \
+               borderpad=0.5, columnspacing = 0.4, handletextpad = -2, \
+               loc='best', shadow=False, ncol=3, frameon=True, framealpha=1, facecolor=None, edgecolor='black').get_frame().set_boxstyle('square', pad=0.2)
 
         plt.tight_layout()
+
+        if regression:
+            a = reg_arr_L2[-1].coef_[0]
+            print(f"slope = {a}")
+            
 
         # Showing and saving
         if save_name is not None:
@@ -759,7 +809,7 @@ class Analyzer(object):
                         show: bool=True, save_name: Union[str, None]=None):
         
         
-         # Convert the K list to np.ndarray
+        # Convert the K list to np.ndarray
         if isinstance(K, int):
             K = np.array([K])
         elif isinstance(K, list):
@@ -771,19 +821,9 @@ class Analyzer(object):
 
         # Font options
         if adjust_font:
-            plt.rcParams.update({
-                "text.usetex": True,  # Use TeX for rendering
-                "font.family": "serif",  # Use serif font
-                "font.serif": ["cmr10"],  # Set the CMR font family and size
-                "font.size": 10,  # Set the default font size
-                "axes.formatter.use_mathtext": True,  # Enable mathtext mode
-            })
-            
-            rc('text.latex', preamble=r'\usepackage{color}')
+            PlotterHelper.adjust_font()
 
-
-        markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p', 'P', '*', 'X', 'h', 'H', '+', 'x', '|', '_']
-        colors = ["#CC6677", "#999933", "#117733", "#332288"][::-1]
+        colors, markers, markersize = PlotterHelper.get_colors_markers_markersize()
 
         # Compute the L2 errors
         eL2, eLinf = self.compute_L2Linf_div_h(N, K, DN_int_x, DN_int_y, DN_int_t, DN_L2_int_x, DN_L2_int_y, DN_L2_int_t, regression)
@@ -792,16 +832,16 @@ class Analyzer(object):
         im = [0 for i in range(2 * len(K))]
 
         # Adding legend inside a box
-        fig, ax = plt.subplots(1, figsize=(3.15, 4))
+        fig, ax = plt.subplots(1, figsize=PlotterHelper.get_figsize())
 
         ax.set_yscale('log')
 
         # Plotting
         for i in range(eL2.shape[0]):
-            im[i], = ax.plot(N, eL2[i, :], color=colors[i], marker=markers[i], markersize=3)
+            im[i], = ax.plot(N, eL2[i, :], color=colors[i], marker=markers[i], markersize=markersize)
 
         for i in range(eLinf.shape[0]):
-            im[i + len(K)], = ax.plot(N, eLinf[i, :], color=colors[i], marker=markers[i], linestyle='--', markersize=3)
+            im[i + len(K)], = ax.plot(N, eLinf[i, :], color=colors[i], marker=markers[i], linestyle='--', markersize=markersize)
 
         # Set ticks on the x-axis
         ax.set_xticks(N)
@@ -816,9 +856,14 @@ class Analyzer(object):
         extra = Rectangle((0, 0), 2, 2, fc="w", fill=False, edgecolor='k', linewidth=0)
         empty = [""]
 
-        label_key = [r'$K \backslash p$']   
-        label_col = [r'$\textcolor{white}{|||}$' + f'${i}$' for i in K]   
-        label_row = [r'$\textcolor{white}{|||} 2 \textcolor{white}{|||}$', r'$\textcolor{white}{||} \infty \textcolor{white}{||}$']       
+        if adjust_font:
+            label_key = [r'$K \backslash p$']   
+            label_col = [r'$\textcolor{white}{|||}$' + f'${i}$' for i in K]   
+            label_row = [r'$\textcolor{white}{|||} 2 \textcolor{white}{|||}$', r'$\textcolor{white}{||} \infty \textcolor{white}{||}$']
+        else:
+            label_key = [r'$K \backslash p$']   
+            label_col = [f'${i}$' for i in K]   
+            label_row = [r'$2$', r'$\infty$'] 
 
         legend_handle = [*[extra for i in range(2 + len(K))], *im[0 : len(K)], extra, *im[len(K):]]
         legend_labels = np.concatenate([label_key, label_col, [label_row[0]], len(K) * empty, [label_row[1]], len(K) * empty])
@@ -906,7 +951,7 @@ class Analyzer(object):
         CN = self.compute_condition_number(N, K, DN_int_x, DN_int_y, DN_int_t, DN_L2_int_x, DN_L2_int_y, DN_L2_int_t, mode=mode)
 
         # Adding legend inside a box
-        fig, ax = plt.subplots(1, figsize=(3.15, 4))
+        fig, ax = plt.subplots(1, figsize=PlotterHelper.get_figsize())
 
         ax.set_yscale('log')
 
@@ -947,27 +992,27 @@ if __name__ == "__main__":
 
     mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
                     t_map=StandardTimeMapping("linear", t_begin=0., t_end=2.),
-                    d_map = StandardDomainMapping("crazy_mesh", c=0.1), verbose=False)
+                    d_map = StandardDomainMapping("crazy_mesh", c=0.3), verbose=False)
     # mes.print_problem()
 
     a = Analyzer(mes)
 
-    # a.plot_L2_zw_h(False, \
-    #                 range(2, 10), [1, 2, 3], \
-    #                 2, 2, 2, \
-    #                 3, 3, 3, \
-    #                 adjust_font= False, \
-    #                 regression=True,
-    #                 save_name='L2_errors_c1.pdf')
+    a.plot_L2Linf_zw_h(False, \
+                    range(1, 11), [1, 2, 3], \
+                    2, 2, 2, \
+                    6, 6, 6, \
+                    adjust_font=True, \
+                    regression=True,
+                    save_name='L2Linf_errors_c3.pdf')
 
     # a.plot_energy([0., 0.5, 1.0, 1.5, 2.0], N_int_x=7, N_int_y=7, show=True, save_name=None, verbose=False)
 
-    a.plot_L2Linf_div_h(range(2, 11), [1, 2, 3], \
-                    2, 2, 2, \
-                    3, 3, 3, \
-                    adjust_font= True, \
-                    regression=True,
-                    save_name='L2Linf_errors_div_c1.ps')
+    # a.plot_L2Linf_div_h(range(2, 6), [1, 2, 3], \
+    #                 2, 2, 2, \
+    #                 3, 3, 3, \
+    #                 adjust_font=True, \
+    #                 regression=True,
+    #                 save_name='L2Linf_errors_div_c1.pdf')
 
     # a.plot_condition_number(range(2, 7), [1, 2, 3], \
     #                 2, 2, 2, \
