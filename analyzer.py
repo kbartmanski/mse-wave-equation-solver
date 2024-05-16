@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from assignment_functions import lobatto_quad
 from mapping import StandardDomainMapping, StandardTimeMapping
@@ -790,6 +791,9 @@ class Analyzer(object):
 
         if regression:
             a = reg_arr_L2[-1].coef_[0]
+
+            # Perform regression on the highest K
+            ax.plot(N, 10 ** reg_arr_L2[-1].predict(np.array(N).reshape(-1, 1)), color=colors[-1], linestyle='-.')
             print(f"slope = {a}")
             
 
@@ -979,6 +983,98 @@ class Analyzer(object):
         if show:
             plt.show()
 
+    def plot_exponent_c(self, \
+                        adjust_font: bool=False, \
+                        show: bool=True, save_name: Union[str, None]=None):
+        
+    
+        # Font options
+        if adjust_font:
+            PlotterHelper.adjust_font()
+
+        colors, markers, markersize = PlotterHelper.get_colors_markers_markersize()
+
+        # Get the exponents and c
+        df = pd.read_excel('res//c_exponent//exponents.xlsx', sheet_name='exponents')
+        table_df = df.iloc[4:, 12:].values
+        c_array = np.array(table_df[:-1, 0], dtype=float)
+        exponent_array = np.array(table_df[:-1, 1], dtype=float)
+
+
+        # Adding legend inside a box
+        fig, ax = plt.subplots(1, figsize=PlotterHelper.get_figsize())
+
+        ax.scatter(c_array, exponent_array, color=colors[0], marker=markers[0], s=markersize)
+        ax.plot(c_array[:-2], exponent_array[:-2], color=colors[0], linestyle='-')
+        ax.plot(c_array[-3:], exponent_array[-3:], color=colors[0], linestyle='--')
+        
+        ax.set_xticks(c_array)
+        # Rotate x-ticks
+        plt.xticks(rotation=45)
+
+        # Axes labels
+        ax.set_xlabel('$c$')
+        ax.set_ylabel(r'$a$')
+
+        # legend = ax.legend
+        # legend(loc='best', shadow=False, ncol=2, frameon=True, framealpha=1, facecolor=None, edgecolor='black').get_frame().set_boxstyle('square', pad=0.2)
+
+
+        plt.tight_layout()
+
+        # Showing and saving
+        if save_name is not None:
+            plt.savefig('res//c_exponent//' + save_name)
+        if show:
+            plt.show()
+
+    def plot_meshes(self, \
+                        adjust_font: bool=False, \
+                        show: bool=True, save_name: bool=False):
+        
+        # Font options
+        if adjust_font:
+            PlotterHelper.adjust_font()
+
+        colors, markers, markersize = PlotterHelper.get_colors_markers_markersize()
+
+
+        # Adding legend inside a box
+        fig1, ax1 = plt.subplots(1, figsize=PlotterHelper.get_figsize())
+        fig3, ax3 = plt.subplots(1, figsize=PlotterHelper.get_figsize())
+        fig4, ax4 = plt.subplots(1, figsize=PlotterHelper.get_figsize())
+
+        # Get maps
+        d_map1 = StandardDomainMapping("crazy_mesh", c=0.1)
+        d_map3 = StandardDomainMapping("crazy_mesh", c=0.3)
+        d_map4 = StandardDomainMapping("crazy_mesh", c=0.4)
+
+        # Plot the meshes
+        d_map1.plot(9, 9, 100, False, None, 'k', None, False, ax1)
+        d_map3.plot(9, 9, 100, False, None, 'k', None, False, ax3)
+        d_map4.plot(9, 9, 100, False, None, 'k', None, False, ax4)
+        
+
+        # Axes labels
+        ax1.set_xlabel(r'$\xi$')
+        ax1.set_ylabel(r'$\eta$')
+
+        ax3.set_xlabel(r'$\xi$')
+
+        ax4.set_xlabel(r'$\xi$')
+
+        fig1.tight_layout()
+        fig3.tight_layout()
+        fig4.tight_layout()
+
+        # Showing and saving
+        if save_name:
+            fig1.savefig('res//mesh//mesh_c1.pdf')
+            fig3.savefig('res//mesh//mesh_c3.pdf')
+            fig4.savefig('res//mesh//mesh_c4.pdf')
+        if show:
+            plt.show()
+
 
 if __name__ == "__main__":
     N0 = 2
@@ -992,20 +1088,24 @@ if __name__ == "__main__":
 
     mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
                     t_map=StandardTimeMapping("linear", t_begin=0., t_end=2.),
-                    d_map = StandardDomainMapping("crazy_mesh", c=0.3), verbose=False)
+                    d_map = StandardDomainMapping("crazy_mesh", c=0.35), verbose=False)
     # mes.print_problem()
 
     a = Analyzer(mes)
 
-    a.plot_L2Linf_zw_h(False, \
-                    range(1, 11), [1, 2, 3], \
-                    2, 2, 2, \
-                    6, 6, 6, \
-                    adjust_font=True, \
-                    regression=True,
-                    save_name='L2Linf_errors_c3.pdf')
+    # a.plot_L2Linf_zw_h(False, \
+    #                 range(1, 11), [3], \
+    #                 2, 2, 2, \
+    #                 6, 6, 6, \
+    #                 adjust_font=True, \
+    #                 regression=True,
+    #                 save_name='c_exponent//L2_errors_w_regr_c35.pdf')
+    
+    # a.plot_exponent_c(adjust_font=True, show=True, save_name='exponent_c.pdf')
 
     # a.plot_energy([0., 0.5, 1.0, 1.5, 2.0], N_int_x=7, N_int_y=7, show=True, save_name=None, verbose=False)
+
+    a.plot_meshes(adjust_font=True, show=True, save_name=True)
 
     # a.plot_L2Linf_div_h(range(2, 6), [1, 2, 3], \
     #                 2, 2, 2, \

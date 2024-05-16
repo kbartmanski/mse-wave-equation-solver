@@ -79,7 +79,7 @@ class DomainMapping(object):
         self.y_xi = y_xi
         self.y_eta = y_eta
 
-    def plot(self, xiN: int=10, etaN: int=10, res: int=100, show: bool=False, figname: str=None, color=None, linewidth=None, save=False):
+    def plot(self, xiN: int=10, etaN: int=10, res: int=100, show: bool=False, figname: str=None, color=None, linewidth=None, save=False, ax=None):
         
         if linewidth is None:
             linewidth = 1
@@ -90,34 +90,62 @@ class DomainMapping(object):
         xi0 = np.linspace(-1, 1, xiN)
         eta0 = np.linspace(-1, 1, etaN)
 
-        # begin figure
-        plt.figure()
+        if ax is None:
+            # begin figure
+            plt.figure()
 
-        # plot xi=xi0=const
-        for xic in xi0:
-            X, Y = [], []
-            for etav in np.linspace(-1, 1, res):
-                X.append(x(xic, etav))
-                Y.append(y(xic, etav))
+            # plot xi=xi0=const
+            for xic in xi0:
+                X, Y = [], []
+                for etav in np.linspace(-1, 1, res):
+                    X.append(x(xic, etav))
+                    Y.append(y(xic, etav))
+                
+                if color is None:
+                    plt.plot(X, Y, color='g', linewidth=linewidth)
+                else:
+                    plt.plot(X, Y, color=color, linewidth=linewidth)
             
-            if color is None:
-                plt.plot(X, Y, color='g', linewidth=linewidth)
-            else:
-                plt.plot(X, Y, color=color, linewidth=linewidth)
-        
-        # plot eta=eta0=const
-        for etac in eta0:
-            X, Y = [], []
-            for xiv in np.linspace(-1, 1, res):
-                X.append(x(xiv, etac))
-                Y.append(y(xiv, etac))
+            # plot eta=eta0=const
+            for etac in eta0:
+                X, Y = [], []
+                for xiv in np.linspace(-1, 1, res):
+                    X.append(x(xiv, etac))
+                    Y.append(y(xiv, etac))
+                
+                if color is None:
+                    plt.plot(X, Y, color='b', linewidth=linewidth)
+                else:
+                    plt.plot(X, Y, color=color, linewidth=linewidth)
             
-            if color is None:
-                plt.plot(X, Y, color='b', linewidth=linewidth)
-            else:
-                plt.plot(X, Y, color=color, linewidth=linewidth)
-        
-        plt.axis('square')
+            plt.axis('square')
+
+        else:
+            # plot xi=xi0=const
+            for xic in xi0:
+                X, Y = [], []
+                for etav in np.linspace(-1, 1, res):
+                    X.append(x(xic, etav))
+                    Y.append(y(xic, etav))
+                
+                if color is None:
+                    ax.plot(X, Y, color='g', linewidth=linewidth)
+                else:
+                    ax.plot(X, Y, color=color, linewidth=linewidth)
+            
+            # plot eta=eta0=const
+            for etac in eta0:
+                X, Y = [], []
+                for xiv in np.linspace(-1, 1, res):
+                    X.append(x(xiv, etac))
+                    Y.append(y(xiv, etac))
+                
+                if color is None:
+                    ax.plot(X, Y, color='b', linewidth=linewidth)
+                else:
+                    ax.plot(X, Y, color=color, linewidth=linewidth)
+            
+            ax.set_aspect('equal', adjustable='box')
 
         if save:
             if figname is None:
@@ -132,7 +160,10 @@ class DomainMapping(object):
             if not os.path.exists('domain_plots'):
                 os.mkdir('domain_plots')
 
-            plt.savefig('domain_plots'+'\\'+figname, dpi=500)
+            if ax is None:
+                plt.savefig('domain_plots'+'\\'+figname, dpi=500)
+            else:
+                ax.savefig('domain_plots'+'\\'+figname, dpi=500)
         
         if show:
             plt.show()
@@ -307,4 +338,4 @@ class StandardDomainMapping(DomainMapping):
 if __name__ == "__main__":
     d_map = StandardDomainMapping("crazy_mesh", c=0.1)
     t_map = StandardTimeMapping("linear", t_begin=0, t_end=2)
-    print(t_map)
+    d_map.plot(xiN=9, etaN=9, res=100, show=True, save=False, color='k')
