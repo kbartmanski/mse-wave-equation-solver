@@ -58,6 +58,7 @@ class Problem(object):
         self.t_map = t_map
         self.bc = bc            # is tuple with TWO entries (*, *)
         self.zw_exact = None
+        self.pi_exact = None
         self.e_tot_exact = None
 
         # For multiple elements only
@@ -150,7 +151,7 @@ class Solver(ValidProblemID, Reconstructible):
 
             problem = Problem(**default_kwargs)
 
-            def exact_solution(x, y, t):
+            def w_exact_solution(x, y, t):
                 c = 1
                 Lx = 2
                 Ly = 2
@@ -160,9 +161,21 @@ class Solver(ValidProblemID, Reconstructible):
 
                 omega = c * np.pi * np.sqrt((n / Lx) ** 2 + (m / Ly) ** 2)
                 return np.cos(np.pi / 2 * x) * np.cos(np.pi / 2 * y) * np.cos(omega * t)
+            
+            def pi_exact_solution(x, y, t):
+                c = 1
+                Lx = 2
+                Ly = 2
+                
+                n = 1
+                m = 1
+
+                omega = c * np.pi * np.sqrt((n / Lx) ** 2 + (m / Ly) ** 2)
+                return -omega * np.cos(np.pi / 2 * x) * np.cos(np.pi / 2 * y) * np.sin(omega * t)
 
             # Assign exact solution                                                        
-            problem.zw_exact = exact_solution
+            problem.zw_exact = w_exact_solution
+            problem.pi_exact = pi_exact_solution
 
             # Assign exact energy
             problem.e_tot_exact = np.pi ** 2 / 4

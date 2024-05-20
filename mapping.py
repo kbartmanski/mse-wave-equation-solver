@@ -79,10 +79,19 @@ class DomainMapping(object):
         self.y_xi = y_xi
         self.y_eta = y_eta
 
-    def plot(self, xiN: int=10, etaN: int=10, res: int=100, show: bool=False, figname: str=None, color=None, linewidth=None, save=False, ax=None):
+    def plot(self, xiN: int=10, etaN: int=10, res: int=100, \
+                show: bool=False, figname: str=None, \
+                color=None, linewidth=None, linestyle=None, alpha=None, \
+                save=False, ax=None):
         
         if linewidth is None:
             linewidth = 1
+
+        if linestyle is None:
+            linestyle = '-'
+
+        if alpha is None:
+            alpha = 1
 
         x = self.x
         y = self.y
@@ -102,9 +111,9 @@ class DomainMapping(object):
                     Y.append(y(xic, etav))
                 
                 if color is None:
-                    plt.plot(X, Y, color='g', linewidth=linewidth)
+                    plt.plot(X, Y, color='g', linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                 else:
-                    plt.plot(X, Y, color=color, linewidth=linewidth)
+                    plt.plot(X, Y, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
             
             # plot eta=eta0=const
             for etac in eta0:
@@ -114,9 +123,9 @@ class DomainMapping(object):
                     Y.append(y(xiv, etac))
                 
                 if color is None:
-                    plt.plot(X, Y, color='b', linewidth=linewidth)
+                    plt.plot(X, Y, color='b', linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                 else:
-                    plt.plot(X, Y, color=color, linewidth=linewidth)
+                    plt.plot(X, Y, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
             
             plt.axis('square')
 
@@ -129,9 +138,9 @@ class DomainMapping(object):
                     Y.append(y(xic, etav))
                 
                 if color is None:
-                    ax.plot(X, Y, color='g', linewidth=linewidth)
+                    ax.plot(X, Y, color='g', linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                 else:
-                    ax.plot(X, Y, color=color, linewidth=linewidth)
+                    ax.plot(X, Y, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
             
             # plot eta=eta0=const
             for etac in eta0:
@@ -141,9 +150,9 @@ class DomainMapping(object):
                     Y.append(y(xiv, etac))
                 
                 if color is None:
-                    ax.plot(X, Y, color='b', linewidth=linewidth)
+                    ax.plot(X, Y, color='b', linewidth=linewidth, linestyle=linestyle, alpha=alpha)
                 else:
-                    ax.plot(X, Y, color=color, linewidth=linewidth)
+                    ax.plot(X, Y, color=color, linewidth=linewidth, linestyle=linestyle, alpha=alpha)
             
             ax.set_aspect('equal', adjustable='box')
 
@@ -336,6 +345,6 @@ class StandardDomainMapping(DomainMapping):
         return x, y, None, None, None, None
 
 if __name__ == "__main__":
-    d_map = StandardDomainMapping("crazy_mesh", c=0.1)
+    d_map = StandardDomainMapping("crazy_mesh", c=0.2)
     t_map = StandardTimeMapping("linear", t_begin=0, t_end=2)
-    d_map.plot(xiN=9, etaN=9, res=100, show=True, save=False, color='k')
+    d_map.plot(xiN=21, etaN=21, res=100, show=True, save=False, color='k')

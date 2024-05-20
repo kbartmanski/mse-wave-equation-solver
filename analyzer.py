@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from assignment_functions import lobatto_quad
 from mapping import StandardDomainMapping, StandardTimeMapping
 from components import Metric
@@ -33,7 +35,7 @@ class PlotterHelper(object):
         rc('text.latex', preamble=r'\usepackage{color}')
 
     @staticmethod
-    def get_figsize(n_figs_on_page:int = 2, ratio: float=REC_RATIO, page_margin: float=1):
+    def get_figsize(n_figs_on_page:int = 3, ratio: float=REC_RATIO, page_margin: float=1):
         w = (PlotterHelper.A4_DIMS[0] - 2 * page_margin) / n_figs_on_page
         h = w / ratio
 
@@ -105,6 +107,142 @@ class Analyzer(object):
 
         return np.all(lengths == lengths[0])
 
+    # Private method for spatial pointwise error computation
+    def __compute_abs_spat_ptwise_error_zw_h(self, dual: bool, \
+                        t: float, \
+                        N: int, K: int, \
+                        DN_int_x: int, DN_int_y: int, DN_int_t: int, \
+                        N_res_x: int, N_res_y: int) -> np.ndarray:
+        
+        # Assure that N is alway given
+        if N is None:
+            raise ValueError("N parameter must be provided.")
+
+        # Assure that the exact solution exists in the problem (not None)
+        if self.top_problem.zw_exact is None:
+            raise ValueError("The exact solution of the problem zw_exact must be provided (not None).")
+
+        # If single element solver is used, the K parameter must be None
+        if self.type == 'SE' and K is not None:
+            raise ValueError("K parameter must be left at None when using single element solver.")
+        
+        # If multiple element solver is used, the K parameter must be provided
+        if self.type == 'ME' and K is None:
+            raise ValueError("K parameter must be provided by keyword K when using multi element solver.")        
+
+        # Create auxiliary solver: the same args as the top_solver but update orders
+        aux_kwargs = self.top_solver.kwargs
+        aux_kwargs["N"] = N
+
+        # Order of mass matrix integration
+        aux_kwargs["N_int_x"] = N + DN_int_x
+        aux_kwargs["N_int_y"] = N + DN_int_y
+        aux_kwargs["N_int_t"] = N + DN_int_t
+
+        if self.type == 'SE':
+            aux_solver = Solver(self.top_solver.problem_id, self.top_solver.sparse, verbose=False, **aux_kwargs)
+            # Solve with solver
+            aux_solver.solve_system(verbose=False)
+        else:
+            aux_solver = MESolver(self.top_solver.problem_id, K, self.top_solver.sparse, verbose=False, **aux_kwargs)
+            # Solve with solver
+            aux_solver.solve(verbose=False)
+
+        
+        # Metric to be used in reconstruction
+        metric = Metric(N, N+DN_int_x, N+DN_int_y, N+DN_int_t, self.top_problem.c, self.top_problem.r, self.top_problem.d_map, self.top_problem.t_map)
+
+        # Retrieve mappings
+        d_map = self.top_problem.d_map
+
+        # Generate unit reconstruction grid
+        xi_rec = np.linspace(-1, 1, N_res_x)
+        eta_rec = np.linspace(-1, 1, N_res_y)
+        mesh_xieta_rec = np.meshgrid(xi_rec, eta_rec)
+
+        x_rec_grid = d_map.x(mesh_xieta_rec[0], mesh_xieta_rec[1])
+        y_rec_grid = d_map.y(mesh_xieta_rec[0], mesh_xieta_rec[1])
+
+
+        if dual:
+            z_h = aux_solver.reconstruct_w(mesh_xieta_rec, t, verbose=False)   # solve for w DOFs
+        else:
+            z_h = aux_solver.reconstruct_z(mesh_xieta_rec, t, verbose=False)   # solve for z DOFs
+
+        z_h = z_h.reshape(N_res_y, N_res_x)        
+
+        # Evaluate the exact solution at integration nodes
+        zw_ex_evaluated = self.top_problem.zw_exact(x_rec_grid, y_rec_grid, t)
+        
+        # Compute the absolute error
+        return np.abs(zw_ex_evaluated - z_h)
+
+    # Private method for spatial pointwise error computation
+    def __compute_abs_spat_ptwise_error_pi_h(self, dual: bool, \
+                        t: float, \
+                        N: int, K: int, \
+                        DN_int_x: int, DN_int_y: int, DN_int_t: int, \
+                        N_res_x: int, N_res_y: int) -> np.ndarray:
+        
+        # Assure that N is alway given
+        if N is None:
+            raise ValueError("N parameter must be provided.")
+
+        # Assure that the exact solution exists in the problem (not None)
+        if self.top_problem.zw_exact is None:
+            raise ValueError("The exact solution of the problem zw_exact must be provided (not None).")
+
+        # If single element solver is used, the K parameter must be None
+        if self.type == 'SE' and K is not None:
+            raise ValueError("K parameter must be left at None when using single element solver.")
+        
+        # If multiple element solver is used, the K parameter must be provided
+        if self.type == 'ME' and K is None:
+            raise ValueError("K parameter must be provided by keyword K when using multi element solver.")        
+
+        # Create auxiliary solver: the same args as the top_solver but update orders
+        aux_kwargs = self.top_solver.kwargs
+        aux_kwargs["N"] = N
+
+        # Order of mass matrix integration
+        aux_kwargs["N_int_x"] = N + DN_int_x
+        aux_kwargs["N_int_y"] = N + DN_int_y
+        aux_kwargs["N_int_t"] = N + DN_int_t
+
+        if self.type == 'SE':
+            aux_solver = Solver(self.top_solver.problem_id, self.top_solver.sparse, verbose=False, **aux_kwargs)
+            # Solve with solver
+            aux_solver.solve_system(verbose=False)
+        else:
+            aux_solver = MESolver(self.top_solver.problem_id, K, self.top_solver.sparse, verbose=False, **aux_kwargs)
+            # Solve with solver
+            aux_solver.solve(verbose=False)
+
+        
+        # Metric to be used in reconstruction
+        metric = Metric(N, N+DN_int_x, N+DN_int_y, N+DN_int_t, self.top_problem.c, self.top_problem.r, self.top_problem.d_map, self.top_problem.t_map)
+
+        # Retrieve mappings
+        d_map = self.top_problem.d_map
+
+        # Generate unit reconstruction grid
+        xi_rec = np.linspace(-1, 1, N_res_x)
+        eta_rec = np.linspace(-1, 1, N_res_y)
+        mesh_xieta_rec = np.meshgrid(xi_rec, eta_rec)
+
+        x_rec_grid = d_map.x(mesh_xieta_rec[0], mesh_xieta_rec[1])
+        y_rec_grid = d_map.y(mesh_xieta_rec[0], mesh_xieta_rec[1])
+
+
+        pi_h = aux_solver.reconstruct_pi(mesh_xieta_rec, t, verbose=False)   # solve for pi DOFs
+        pi_h = pi_h.reshape(N_res_y, N_res_x)        
+
+        # Evaluate the exact solution at integration nodes
+        pi_ex_evaluated = self.top_problem.pi_exact(x_rec_grid, y_rec_grid, t)
+        
+        # Compute the absolute error
+        return np.abs(pi_ex_evaluated - pi_h)
+    
     # Private method for one-time evaluation of L2 error for zw
     def __compute_L2Linf_zw_h_def(self, \
                                 dual: bool, \
@@ -711,6 +849,154 @@ class Analyzer(object):
         # All done
         return e_pot, e_kin, e_tot
 
+    def plot_abs_spat_ptwise_error_zw_h(self, \
+                        dual: bool, \
+                        t: float, \
+                        N: int, K: int, \
+                        DN_int_x: int, DN_int_y: int, DN_int_t: int, \
+                        N_res_x: int, N_res_y: int, \
+                        adjust_font: bool=False, \
+                        show: bool=True, save_name: Union[str, None]=None):
+        
+        # Adjust the font
+        if adjust_font:
+            PlotterHelper.adjust_font()
+
+        # Get colors, markers and markersize
+        my_colors, _, _ = PlotterHelper.get_colors_markers_markersize()
+
+        # Get the error
+        abs_ptwse_err = self.__compute_abs_spat_ptwise_error_zw_h(dual, t, N, K, DN_int_x, DN_int_y, DN_int_t, N_res_x, N_res_y)
+
+        # Convert to log10
+        abs_ptwse_err = np.log10(abs_ptwse_err) 
+
+        # Create the figure and axis
+        fig, ax = plt.subplots(figsize=PlotterHelper.get_figsize())
+
+        # Plot the mesh
+        N = self.top_problem.N
+        self.top_problem.d_map.plot(N, N, color='white', linewidth=0.5, linestyle='--', alpha=0.3, ax=ax)
+
+        # Create the color map
+        cvals  = [-8.914516222598609, -1.1799912639273973]
+        colors = [my_colors[0], my_colors[3]]
+
+        norm=plt.Normalize(min(cvals), max(cvals))
+        tuples = list(zip(map(norm,cvals), colors))
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", tuples)
+
+        # min max for zw, t 1, 2
+        # min = -8.914516222598609
+        # max = -1.1799912639273973
+        # print(f"min = {np.min(abs_ptwse_err)}, max = {np.max(abs_ptwse_err)}")
+
+        # Plot the 2D array using imshow
+        cax = ax.imshow(abs_ptwse_err, cmap=cmap, norm=norm, interpolation='none', extent=[-1, 1, -1, 1])
+
+        # Create a divider for the existing axis
+        # divider = make_axes_locatable(ax)
+        # # Append a new axis to the right of the current axis, for the colorbar
+        # cax_cb = divider.append_axes("right", size="5%", pad=0.05)
+
+        # ticks = np.linspace(np.min(abs_ptwse_err), np.max(abs_ptwse_err), 4)
+        # ticks = np.ceil(ticks)
+        # ticks.astype(int)
+
+        cbar = fig.colorbar(cax, fraction=0.05)  # Add a colorbar to show the color scale
+        cbar.set_label(r'$\log_{10} \left( \left| w^{ex} - w^{h} \right| \right)$')
+        # cbar.set_ticks(ticks)
+
+
+        # Adding titles and labels
+        ax.set_xlabel(r'$\xi$')
+        ax.set_ylabel(r'$\eta$')
+        ax.set_xticks([-1, 0, 1])
+        ax.set_yticks([-1, 0, 1])
+
+        # Tight layout
+        plt.tight_layout()
+
+        # Showing and saving
+        if save_name is not None:
+            plt.savefig('res//log_e_w//' + save_name)
+        if show:
+            plt.show()
+
+    def plot_abs_spat_ptwise_error_pi_h(self, \
+                        dual: bool, \
+                        t: float, \
+                        N: int, K: int, \
+                        DN_int_x: int, DN_int_y: int, DN_int_t: int, \
+                        N_res_x: int, N_res_y: int, \
+                        adjust_font: bool=False, \
+                        show: bool=True, save_name: Union[str, None]=None):
+        
+        # Adjust the font
+        if adjust_font:
+            PlotterHelper.adjust_font()
+
+        # Get colors, markers and markersize
+        my_colors, _, _ = PlotterHelper.get_colors_markers_markersize()
+
+        # Get the error
+        abs_ptwse_err = self.__compute_abs_spat_ptwise_error_pi_h(dual, t, N, K, DN_int_x, DN_int_y, DN_int_t, N_res_x, N_res_y)
+
+        # Convert to log10
+        abs_ptwse_err = np.log10(abs_ptwse_err) 
+
+        # Create the figure and axis
+        fig, ax = plt.subplots(figsize=PlotterHelper.get_figsize())
+
+        # Plot the mesh
+        N = self.top_problem.N
+        self.top_problem.d_map.plot(N, N, color='white', linewidth=0.5, linestyle='--', alpha=0.3, ax=ax)
+
+        # Create the color map
+        cvals  = [-7.1277045320496395, 0.44079439027450185]
+        colors = [my_colors[0], my_colors[3]]
+
+        # min max for pi
+        # min = -7.1277045320496395
+        # max = 0.44079439027450185
+        # print(f"min = {np.min(abs_ptwse_err)}, max = {np.max(abs_ptwse_err)}")
+
+        norm=plt.Normalize(min(cvals), max(cvals))
+        tuples = list(zip(map(norm,cvals), colors))
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", tuples)
+
+        # Plot the 2D array using imshow
+        cax = ax.imshow(abs_ptwse_err, cmap=cmap, norm=norm, interpolation='none', extent=[-1, 1, -1, 1])
+
+        # Create a divider for the existing axis
+        # divider = make_axes_locatable(ax)
+        # # Append a new axis to the right of the current axis, for the colorbar
+        # cax_cb = divider.append_axes("right", size="5%", pad=0.05)
+
+        # ticks = np.linspace(np.min(abs_ptwse_err), np.max(abs_ptwse_err), 4)
+        # ticks = np.ceil(ticks)
+        # ticks.astype(int)
+
+        cbar = fig.colorbar(cax, fraction=0.05)  # Add a colorbar to show the color scale
+        cbar.set_label(r'$\log_{10} \left( \left| {\pi}^{ex} - {\pi}^{h} \right| \right)$')
+        # cbar.set_ticks(ticks)
+
+
+        # Adding titles and labels
+        ax.set_xlabel(r'$\xi$')
+        ax.set_ylabel(r'$\eta$')
+        ax.set_xticks([-1, 0, 1])
+        ax.set_yticks([-1, 0, 1])
+
+        # Tight layout
+        plt.tight_layout()
+
+        # Showing and saving
+        if save_name is not None:
+            plt.savefig('res//log_e_pi//' + save_name)
+        if show:
+            plt.show()
+
     def plot_L2Linf_zw_h(self, dual: bool, \
                         N: Union[int, tuple, list, np.ndarray], \
                         K: Union[int, tuple, list, np.ndarray, None], \
@@ -799,7 +1085,7 @@ class Analyzer(object):
 
         # Showing and saving
         if save_name is not None:
-            plt.savefig('res//' + save_name)
+            plt.savefig('res//l2linf//' + save_name)
         if show:
             plt.show()
 
@@ -882,31 +1168,45 @@ class Analyzer(object):
 
         # Showing and saving
         if save_name is not None:
-            plt.savefig('res//' + save_name)
+            plt.savefig('res//l2linf//' + save_name)
         if show:
             plt.show()
 
-    def plot_energy(self, t: Union[float, np.ndarray, list], \
+    def plot_energy(self, t: Union[np.ndarray, list, range, tuple], \
                         N_int_x: Union[None, int]=None, N_int_y: Union[None, int]=None, \
+                        adjust_font: bool=False, \
                         show: bool=True, save_name: Union[str, None]=None, \
                         verbose: bool=False):
+        
+        # Convert the t list to np.ndarray
+        if isinstance(t, int) or isinstance(t, float):
+            raise ValueError("The 't' arguments (time slices) must be either of type np.ndarray, list, range or tuple.")
+        elif isinstance(t, list):
+            t = np.array(t)
+        elif isinstance(t, tuple):
+            t = np.array(t)
+        elif isinstance(t, range):
+            t = np.array(list(t))
+
+        # Font options
+        if adjust_font:
+            PlotterHelper.adjust_font()
+
+        colors, _, _ = PlotterHelper.get_colors_markers_markersize()
 
         # Get the energy
         e_pot, e_kin, e_tot = self.compute_energy(t, N_int_x, N_int_y, verbose)
         e_tot_ex = self.top_problem.e_tot_exact
-
-        # Get the style
-        # splt.style.use('science')
-
-        # Adding legend inside a box
-        fig, ax = plt.subplots(1)
         
-         # Plotting
-        ax.plot(t, e_tot, label=r'$E^h$')
+        # Adding legend inside a box
+        fig, ax = plt.subplots(1, figsize=PlotterHelper.get_figsize())
+        
+        # Plotting
+        ax.plot(t, e_tot, label=r'$E^h$', color=colors[0], zorder=2)
 
         # If exact energy is available
         if e_tot_ex is not None:
-            ax.plot([min(t), max(t)], [e_tot_ex, e_tot_ex], label='$e_{tot}^{ex}$', linestyle='--')
+            ax.plot([min(t), max(t)], [e_tot_ex, e_tot_ex], label=r'$E^{ex}$', linestyle='-', color=colors[1], zorder=1)
 
             # Get the max y and min y
             y_min = min(e_tot_ex, min(e_tot))
@@ -919,15 +1219,33 @@ class Analyzer(object):
         x_max = max(t)
 
         legend = ax.legend
-        legend(loc='best', shadow=False, frameon=True, framealpha=1, facecolor=None, edgecolor='black').get_frame().set_boxstyle('square', pad=0.2)
-        ax.grid(True, color='0.8')
-        ax.set_xlim(left=x_min, right=x_max)
-        ax.set_ylim(bottom=y_min, top=y_max)
+        legend(loc='upper right', shadow=False, frameon=True, framealpha=1, facecolor=None, edgecolor='black').get_frame().set_boxstyle('square', pad=0.2)
+
+        # Get solver
+        solver = self.top_solver
+
+        # Get time divisions
+        if isinstance(solver, MESolver):
+            t_div = np.linspace(solver.t0, solver.tf, solver.K + 1)
+
+            # Plot vertical lines, element boundaries
+            for i in range(len(t_div)):
+                ax.axvline(x=t_div[i], color=colors[2], linestyle='--', zorder=0, linewidth=0.5)
+
+        # ax.grid(True, color='0.8')
+        # ax.set_xlim(left=x_min, right=x_max)
+        # ax.set_ylim(bottom=y_min, top=y_max)
 
         # bbox_to_anchor moves the legend box relative to the location specified in loc
         # In this case, it moves it down by 0.1 relative to upper left, effectively placing it below the plot
 
-        plt.show()
+        plt.tight_layout()
+
+        if  save_name is not None:
+            plt.savefig('res//energy//' + save_name)
+
+        if show:
+            plt.show()
 
     def plot_condition_number(self, \
                         N: Union[int, tuple, list, np.ndarray], \
@@ -1077,7 +1395,7 @@ class Analyzer(object):
 
 
 if __name__ == "__main__":
-    N0 = 2
+    N0 = 10
     K0 = 3
 
     s = Solver(problem_id=1, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
@@ -1086,26 +1404,36 @@ if __name__ == "__main__":
     # s.print_problem()
     
 
-    mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
+    mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0+2, N_int_y=N0+2, N_int_t=N0+2, \
                     t_map=StandardTimeMapping("linear", t_begin=0., t_end=2.),
-                    d_map = StandardDomainMapping("crazy_mesh", c=0.35), verbose=False)
+                    d_map = StandardDomainMapping("crazy_mesh", c=0.2), verbose=False)
     # mes.print_problem()
 
     a = Analyzer(mes)
 
     # a.plot_L2Linf_zw_h(False, \
-    #                 range(1, 11), [3], \
+    #                 range(1, 11), [1, 2, 3], \
     #                 2, 2, 2, \
     #                 6, 6, 6, \
     #                 adjust_font=True, \
     #                 regression=True,
-    #                 save_name='c_exponent//L2_errors_w_regr_c35.pdf')
+    #                 save_name='L2Linf_errors_c2.pdf')
     
     # a.plot_exponent_c(adjust_font=True, show=True, save_name='exponent_c.pdf')
 
-    # a.plot_energy([0., 0.5, 1.0, 1.5, 2.0], N_int_x=7, N_int_y=7, show=True, save_name=None, verbose=False)
+    # a.plot_energy(np.linspace(0, 2, 200), \
+    #                 N_int_x=N0+3, N_int_y=N0+3, \
+    #                 adjust_font=True, show=True, save_name='energy_k3_c2.pdf')
 
-    a.plot_meshes(adjust_font=True, show=True, save_name=True)
+    a.plot_abs_spat_ptwise_error_pi_h(False, \
+                                        1., \
+                                        10, 3, \
+                                        2, 2, 2, \
+                                        200, 200, \
+                                        adjust_font=True, \
+                                        show=True, save_name='log_e_pi_k3_t1_c2_sd.pdf')
+
+    # a.plot_meshes(adjust_font=True, show=True, save_name=True)
 
     # a.plot_L2Linf_div_h(range(2, 6), [1, 2, 3], \
     #                 2, 2, 2, \
