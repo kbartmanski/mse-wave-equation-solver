@@ -35,7 +35,7 @@ class PlotterHelper(object):
         rc('text.latex', preamble=r'\usepackage{color}')
 
     @staticmethod
-    def get_figsize(n_figs_on_page:int = 3, ratio: float=REC_RATIO, page_margin: float=1):
+    def get_figsize(n_figs_on_page:int = 2, ratio: float=REC_RATIO, page_margin: float=1):
         w = (PlotterHelper.A4_DIMS[0] - 2 * page_margin) / n_figs_on_page
         h = w / ratio
 
@@ -1204,6 +1204,8 @@ class Analyzer(object):
         # Plotting
         ax.plot(t, e_tot, label=r'$E^h$', color=colors[0], zorder=2)
 
+        ax.set_xlabel('$t$')
+
         # If exact energy is available
         if e_tot_ex is not None:
             ax.plot([min(t), max(t)], [e_tot_ex, e_tot_ex], label=r'$E^{ex}$', linestyle='-', color=colors[1], zorder=1)
@@ -1395,8 +1397,8 @@ class Analyzer(object):
 
 
 if __name__ == "__main__":
-    N0 = 10
-    K0 = 3
+    N0 = 12
+    K0 = 4
 
     s = Solver(problem_id=1, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
                t_map=StandardTimeMapping("linear", t_begin=-1, t_end=1), d_map = StandardDomainMapping("crazy_mesh", c=0.0), \
@@ -1404,43 +1406,44 @@ if __name__ == "__main__":
     # s.print_problem()
     
 
-    mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0+2, N_int_y=N0+2, N_int_t=N0+2, \
+    mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
                     t_map=StandardTimeMapping("linear", t_begin=0., t_end=2.),
-                    d_map = StandardDomainMapping("crazy_mesh", c=0.2), verbose=False)
+                    d_map = StandardDomainMapping("crazy_mesh", c=0.1), verbose=False)
     # mes.print_problem()
 
     a = Analyzer(mes)
 
-    # a.plot_L2Linf_zw_h(False, \
-    #                 range(1, 11), [1, 2, 3], \
-    #                 2, 2, 2, \
-    #                 6, 6, 6, \
-    #                 adjust_font=True, \
-    #                 regression=True,
-    #                 save_name='L2Linf_errors_c2.pdf')
+    a.plot_L2Linf_zw_h(False, \
+                    range(1, 11), [1, 2, 3], \
+                    2, 2, 2, \
+                    3, 3, 3, \
+                    adjust_font=True, \
+                    regression=False, \
+                    show=True, \
+                    save_name='L2Linf_errors_c1.ps')
     
     # a.plot_exponent_c(adjust_font=True, show=True, save_name='exponent_c.pdf')
 
-    # a.plot_energy(np.linspace(0, 2, 200), \
+    # a.plot_energy(np.linspace(0, 2, 300), \
     #                 N_int_x=N0+3, N_int_y=N0+3, \
-    #                 adjust_font=True, show=True, save_name='energy_k3_c2.pdf')
+    #                 adjust_font=True, show=True, save_name='energy_k4_c1.pdf')
 
-    a.plot_abs_spat_ptwise_error_pi_h(False, \
-                                        1., \
-                                        10, 3, \
-                                        2, 2, 2, \
-                                        200, 200, \
-                                        adjust_font=True, \
-                                        show=True, save_name='log_e_pi_k3_t1_c2_sd.pdf')
+    # a.plot_abs_spat_ptwise_error_pi_h(False, \
+    #                                     1., \
+    #                                     10, 3, \
+    #                                     2, 2, 2, \
+    #                                     200, 200, \
+    #                                     adjust_font=True, \
+    #                                     show=True, save_name='log_e_pi_k3_t1_c2_alpha.pdf')
 
     # a.plot_meshes(adjust_font=True, show=True, save_name=True)
 
-    # a.plot_L2Linf_div_h(range(2, 6), [1, 2, 3], \
+    # a.plot_L2Linf_div_h(range(2, 11), [1, 2, 3], \
     #                 2, 2, 2, \
     #                 3, 3, 3, \
     #                 adjust_font=True, \
-    #                 regression=True,
-    #                 save_name='L2Linf_errors_div_c1.pdf')
+    #                 regression=False,
+    #                 save_name='L2Linf_errors_div_c1.ps')
 
     # a.plot_condition_number(range(2, 7), [1, 2, 3], \
     #                 2, 2, 2, \
