@@ -178,7 +178,7 @@ class Analyzer(object):
         return np.abs(zw_ex_evaluated - z_h)
 
     # Private method for spatial pointwise error computation
-    def __compute_abs_spat_ptwise_error_pi_h(self, dual: bool, \
+    def __compute_abs_spat_ptwise_error_pi_h(self, \
                         t: float, \
                         N: int, K: int, \
                         DN_int_x: int, DN_int_y: int, DN_int_t: int, \
@@ -879,7 +879,7 @@ class Analyzer(object):
         self.top_problem.d_map.plot(N, N, color='white', linewidth=0.5, linestyle='--', alpha=0.3, ax=ax)
 
         # Create the color map
-        cvals  = [-8.914516222598609, -1.1799912639273973]
+        cvals  = [-7.921232099848884, -1.511745683812782]
         colors = [my_colors[0], my_colors[3]]
 
         norm=plt.Normalize(min(cvals), max(cvals))
@@ -892,7 +892,7 @@ class Analyzer(object):
         # print(f"min = {np.min(abs_ptwse_err)}, max = {np.max(abs_ptwse_err)}")
 
         # Plot the 2D array using imshow
-        cax = ax.imshow(abs_ptwse_err, cmap=cmap, norm=norm, interpolation='none', extent=[-1, 1, -1, 1])
+        cax = ax.imshow(abs_ptwse_err, cmap=cmap, norm=norm, interpolation='bilinear', extent=[-1, 1, -1, 1])
 
         # Create a divider for the existing axis
         # divider = make_axes_locatable(ax)
@@ -924,7 +924,6 @@ class Analyzer(object):
             plt.show()
 
     def plot_abs_spat_ptwise_error_pi_h(self, \
-                        dual: bool, \
                         t: float, \
                         N: int, K: int, \
                         DN_int_x: int, DN_int_y: int, DN_int_t: int, \
@@ -940,7 +939,7 @@ class Analyzer(object):
         my_colors, _, _ = PlotterHelper.get_colors_markers_markersize()
 
         # Get the error
-        abs_ptwse_err = self.__compute_abs_spat_ptwise_error_pi_h(dual, t, N, K, DN_int_x, DN_int_y, DN_int_t, N_res_x, N_res_y)
+        abs_ptwse_err = self.__compute_abs_spat_ptwise_error_pi_h(t, N, K, DN_int_x, DN_int_y, DN_int_t, N_res_x, N_res_y)
 
         # Convert to log10
         abs_ptwse_err = np.log10(abs_ptwse_err) 
@@ -953,7 +952,7 @@ class Analyzer(object):
         self.top_problem.d_map.plot(N, N, color='white', linewidth=0.5, linestyle='--', alpha=0.3, ax=ax)
 
         # Create the color map
-        cvals  = [-7.1277045320496395, 0.44079439027450185]
+        cvals  = [-6.653250879972099, -0.40260578508545425]
         colors = [my_colors[0], my_colors[3]]
 
         # min max for pi
@@ -966,7 +965,7 @@ class Analyzer(object):
         cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", tuples)
 
         # Plot the 2D array using imshow
-        cax = ax.imshow(abs_ptwse_err, cmap=cmap, norm=norm, interpolation='none', extent=[-1, 1, -1, 1])
+        cax = ax.imshow(abs_ptwse_err, cmap=cmap, norm=norm, interpolation='bilinear', extent=[-1, 1, -1, 1])
 
         # Create a divider for the existing axis
         # divider = make_axes_locatable(ax)
@@ -1370,9 +1369,9 @@ class Analyzer(object):
         d_map4 = StandardDomainMapping("crazy_mesh", c=0.4)
 
         # Plot the meshes
-        d_map1.plot(9, 9, 100, False, None, 'k', None, False, ax1)
-        d_map3.plot(9, 9, 100, False, None, 'k', None, False, ax3)
-        d_map4.plot(9, 9, 100, False, None, 'k', None, False, ax4)
+        d_map1.plot(9, 9, 100, False, None, 'k', 0.8, None, None, False, ax1)
+        d_map3.plot(9, 9, 100, False, None, 'k', 0.8, None, None, False, ax3)
+        d_map4.plot(9, 9, 100, False, None, 'k', 0.8, None, None, False, ax4)
         
 
         # Axes labels
@@ -1380,8 +1379,11 @@ class Analyzer(object):
         ax1.set_ylabel(r'$\eta$')
 
         ax3.set_xlabel(r'$\xi$')
+        ax3.set_ylabel(r'$\eta$')
 
         ax4.set_xlabel(r'$\xi$')
+        ax4.set_ylabel(r'$\eta$')
+
 
         fig1.tight_layout()
         fig3.tight_layout()
@@ -1400,15 +1402,15 @@ if __name__ == "__main__":
     N0 = 12
     K0 = 4
 
-    s = Solver(problem_id=1, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
-               t_map=StandardTimeMapping("linear", t_begin=-1, t_end=1), d_map = StandardDomainMapping("crazy_mesh", c=0.0), \
-               verbose=False)
+    # s = Solver(problem_id=1, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
+    #            t_map=StandardTimeMapping("linear", t_begin=-1, t_end=1), d_map = StandardDomainMapping("crazy_mesh", c=0.0), \
+    #            verbose=False)
     # s.print_problem()
     
 
     mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
                     t_map=StandardTimeMapping("linear", t_begin=0., t_end=2.),
-                    d_map = StandardDomainMapping("crazy_mesh", c=0.1), verbose=False)
+                    d_map = StandardDomainMapping("crazy_mesh", c=0.0), verbose=False)
     # mes.print_problem()
 
     a = Analyzer(mes)
@@ -1420,7 +1422,7 @@ if __name__ == "__main__":
                     adjust_font=True, \
                     regression=False, \
                     show=True, \
-                    save_name='L2Linf_errors_c1.ps')
+                    save_name='L2Linf_errors_c0.ps')
     
     # a.plot_exponent_c(adjust_font=True, show=True, save_name='exponent_c.pdf')
 
@@ -1428,13 +1430,19 @@ if __name__ == "__main__":
     #                 N_int_x=N0+3, N_int_y=N0+3, \
     #                 adjust_font=True, show=True, save_name='energy_k4_c1.pdf')
 
-    # a.plot_abs_spat_ptwise_error_pi_h(False, \
-    #                                     1., \
-    #                                     10, 3, \
+    # a.plot_abs_spat_ptwise_error_pi_h(  2., \
+    #                                     7, 1, \
     #                                     2, 2, 2, \
-    #                                     200, 200, \
+    #                                     500, 500, \
     #                                     adjust_font=True, \
-    #                                     show=True, save_name='log_e_pi_k3_t1_c2_alpha.pdf')
+    #                                     show=True, save_name='log_e_pi_k1_t2_c2.pdf')
+    
+    # a.plot_abs_spat_ptwise_error_zw_h(False, 1., \
+    #                                     7, 1, \
+    #                                     2, 2, 2, \
+    #                                     500, 500, \
+    #                                     adjust_font=True, \
+    #                                     show=True, save_name='log_e_w_k1_t1_c2.pdf')
 
     # a.plot_meshes(adjust_font=True, show=True, save_name=True)
 
