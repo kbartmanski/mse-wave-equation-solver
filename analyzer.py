@@ -1259,16 +1259,7 @@ class Analyzer(object):
         
         # Font options
         if adjust_font:
-            plt.rcParams.update({
-                "text.usetex": True,  # Use TeX for rendering
-                "font.family": "serif",  # Use serif font
-                "font.serif": ["cmr10"],  # Set the CMR font family and size
-                "font.size": 10,  # Set the default font size
-                "axes.formatter.use_mathtext": True  # Enable mathtext mode
-            })
-
-        markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', 'P', '*', 'X', 'h', 'H', '+', 'x', '|', '_']
-        colors = ["#CC6677", "#999933", "#117733", "#332288"][::-1]
+            PlotterHelper.adjust_font()
 
         # Compute the L2 errors
         CN = self.compute_condition_number(N, K, DN_int_x, DN_int_y, DN_int_t, DN_L2_int_x, DN_L2_int_y, DN_L2_int_t, mode=mode)
@@ -1276,11 +1267,15 @@ class Analyzer(object):
         # Adding legend inside a box
         fig, ax = plt.subplots(1, figsize=PlotterHelper.get_figsize())
 
+        # Get colors, markers and markersize
+        colors, markers, markersize = PlotterHelper.get_colors_markers_markersize()
+
+
         ax.set_yscale('log')
 
         # Plotting
         for i in range(CN.shape[0]):
-            ax.plot(N, CN[i, :], label=f'$K = {K[i]}$' if K is not None else '$K = None$', color=colors[i], marker=markers[i])
+            ax.plot(N, CN[i, :], label=f'$K = {K[i]}$' if K is not None else '$K = None$', color=colors[i], marker=markers[i], markersize=markersize)
 
         # Set ticks on the x-axis
         ax.set_xticks(N)
@@ -1292,13 +1287,13 @@ class Analyzer(object):
         # Legend
         # loc: 'best', 'upper right', 'upper left', 'lower left', 'lower right', 'right', 'center left', 'center right', 'lower center', 'upper center', 'center'
         legend = ax.legend
-        legend(loc='best', shadow=False, ncol=2, frameon=True, framealpha=1, facecolor=None, edgecolor='black').get_frame().set_boxstyle('square', pad=0.2)
+        legend(loc='best', shadow=False, ncol=1, frameon=True, framealpha=1, facecolor=None, edgecolor='black').get_frame().set_boxstyle('square', pad=0.2)
 
         plt.tight_layout()
 
         # Showing and saving
         if save_name is not None:
-            plt.savefig('res//' + save_name)
+            plt.savefig('res//condition_number//' + save_name)
         if show:
             plt.show()
 
@@ -1325,7 +1320,10 @@ class Analyzer(object):
 
         ax.scatter(c_array, exponent_array, color=colors[0], marker=markers[0], s=markersize)
         ax.plot(c_array[:-2], exponent_array[:-2], color=colors[0], linestyle='-')
-        ax.plot(c_array[-3:], exponent_array[-3:], color=colors[0], linestyle='--')
+        ax.plot(c_array[-3:], exponent_array[-3:], color=colors[0], linestyle=(0, (5, 5)))
+
+        # Plot horizontal line at 0
+        ax.axhline(y=0, color=colors[1], linestyle='--', linewidth=1)
         
         ax.set_xticks(c_array)
         # Rotate x-ticks
@@ -1410,19 +1408,19 @@ if __name__ == "__main__":
 
     mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
                     t_map=StandardTimeMapping("linear", t_begin=0., t_end=2.),
-                    d_map = StandardDomainMapping("crazy_mesh", c=0.0), verbose=False)
+                    d_map = StandardDomainMapping("crazy_mesh", c=0.2), verbose=False)
     # mes.print_problem()
 
     a = Analyzer(mes)
 
-    a.plot_L2Linf_zw_h(False, \
-                    range(1, 11), [1, 2, 3], \
-                    2, 2, 2, \
-                    3, 3, 3, \
-                    adjust_font=True, \
-                    regression=False, \
-                    show=True, \
-                    save_name='L2Linf_errors_c0.ps')
+    # a.plot_L2Linf_zw_h(False, \
+    #                 range(1, 11), [1, 2, 3], \
+    #                 2, 2, 2, \
+    #                 3, 3, 3, \
+    #                 adjust_font=True, \
+    #                 regression=False, \
+    #                 show=True, \
+    #                 save_name='L2Linf_errors_c0.ps')
     
     # a.plot_exponent_c(adjust_font=True, show=True, save_name='exponent_c.pdf')
 
@@ -1451,10 +1449,11 @@ if __name__ == "__main__":
     #                 3, 3, 3, \
     #                 adjust_font=True, \
     #                 regression=False,
-    #                 save_name='L2Linf_errors_div_c1.ps')
+    #                 save_name='L2Linf_errors_div_c2.ps')
 
-    # a.plot_condition_number(range(2, 7), [1, 2, 3], \
+    # a.plot_condition_number(range(2, 11), [1, 2, 3], \
     #                 2, 2, 2, \
     #                 3, 3, 3, \
     #                 adjust_font= True, \
-    #                 save_name='condition_number_c1.pdf')
+    #                 show=True, \
+    #                 save_name='condition_number_c2.pdf')
