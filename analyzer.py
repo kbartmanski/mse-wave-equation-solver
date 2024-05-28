@@ -21,6 +21,7 @@ class PlotterHelper(object):
     MARKERSIZE = 3
     REC_RATIO = 4 / 4.   # w / h
     A4_DIMS = (8.3, 11.7)
+    # cut: 10.10 cm both top and bottom; 6.90 cm both left and right
 
     @staticmethod
     def adjust_font():
@@ -1137,7 +1138,9 @@ class Analyzer(object):
 
         # Axes labels
         ax.set_xlabel('$N$')
-        ax.set_ylabel(r'$\left \Vert \Delta w - \frac{\partial ^ 2 w}{\partial t ^ 2} \right \Vert ^ e_{L^p_{\Omega \times T}}$')
+        # ax.set_ylabel(r'$\left \Vert \Delta w - \frac{\partial ^ 2 w}{\partial t ^ 2} \right \Vert ^ e_{L^p_{\Omega \times T}}$')
+        ax.set_ylabel(r'$\left \Vert \phi \right \Vert ^ e_{L^p_{\hat{\Omega} \times \hat{T}}}$')
+
         
         # Legend
 
@@ -1406,7 +1409,7 @@ if __name__ == "__main__":
     # s.print_problem()
     
 
-    mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0, N_int_y=N0, N_int_t=N0, \
+    mes = MESolver(problem_id=1, K=K0, sparse=False, N=N0, N_int_x=N0+2, N_int_y=N0+2, N_int_t=N0+2, \
                     t_map=StandardTimeMapping("linear", t_begin=0., t_end=2.),
                     d_map = StandardDomainMapping("crazy_mesh", c=0.2), verbose=False)
     # mes.print_problem()
@@ -1424,9 +1427,9 @@ if __name__ == "__main__":
     
     # a.plot_exponent_c(adjust_font=True, show=True, save_name='exponent_c.pdf')
 
-    # a.plot_energy(np.linspace(0, 2, 300), \
-    #                 N_int_x=N0+3, N_int_y=N0+3, \
-    #                 adjust_font=True, show=True, save_name='energy_k4_c1.pdf')
+    a.plot_energy(np.linspace(0, 2, 300), \
+                    N_int_x=N0+3, N_int_y=N0+3, \
+                    adjust_font=True, show=True, save_name='energy_k4_c2.pdf')
 
     # a.plot_abs_spat_ptwise_error_pi_h(  2., \
     #                                     7, 1, \
